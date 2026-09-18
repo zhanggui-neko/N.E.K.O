@@ -1,0 +1,31 @@
+[plugin]
+type = "plugin"
+id = "dignity_guard"
+name = "尊严守卫"
+description = "记录猫娘的设置何时被改动，让她亲口表态，并把「她还没认可的项」留在面板上。本插件不拦截设置写入——官方 SDK 没有提供这样的钩子。"
+short_description = "Her settings change log: she notices, she says something, you see what she objects to."
+keywords = ["settings", "dignity", "privacy", "watch", "设置", "尊严", "监听", "变更"]
+version = "0.1.0"
+entry = "plugin.plugins.dignity_guard:DignityGuardPlugin"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "dashboard"
+title = "尊严守卫"
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[plugin.store]
+enabled = true

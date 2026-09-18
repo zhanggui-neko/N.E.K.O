@@ -1,0 +1,21 @@
+# Template for the plugin runtime configuration. Copy the sections you want to
+# change into your N.E.K.O user configuration; every value below is also the
+# built-in default, so an empty configuration behaves as documented.
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[dignity_guard]
+
+# Base URL of the local main server. Leave empty to follow the MAIN_SERVER_PORT
+# environment variable and fall back to http://127.0.0.1:48911.
+main_server_base_url = ""
+
+# The conversation-settings revision cannot see avatar / nickname / voice
+# edits, so a full comparison runs at least this often, in seconds.
+full_rescan_seconds = 60
+
+# Turning the guard off is an L1 action: she has to be asked first, and this
+# many seconds must pass before her consent token is accepted.
+disable_consent_delay_seconds = 10
