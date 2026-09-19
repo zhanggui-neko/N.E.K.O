@@ -125,4 +125,45 @@ record** of what she does not agree with.
 
 ---
 
+## 9. 实测记录：Steam 官方内核（2026-09-19）
+
+第 8 节的验收标准已在 **Steam 官方外壳 + Steam 官方内核**上跑通 ——
+注意这不是源码内核（开发者本地那套），两者的插件目录、SDK 可见性都不同。
+
+| 验收项 | 结果 |
+|---|---|
+| 被发现 | `POST /plugins/refresh` → `added: ["dignity_guard"]`、`failed: []` |
+| SDK 兼容 | `sdk_conflicts: []` |
+| 启动 | `status: running`（官方 13 个插件此时均为 `stopped`） |
+| **读到真实数据** | 插件 store 中出现主服务真实内容（`characters.<角色>.<字段>` 的 digest + preview） |
+| 零错误 | 插件 error log **0 字节**；连续 3 轮定时器无任何告警 |
+| 面板挂载 | `GET /plugin/dignity_guard/surfaces` → `available: true`、`warnings: []` |
+
+实测抓出并修掉两个**只在打包内核下才暴露**的缺陷（单测与桩服务器均无法发现）：
+
+### 9.1 `httpx.AsyncClient` 不可跨调用缓存
+
+SDK 的 `@timer_interval` 回调**不在固定的 event loop 上运行**。缓存的 `AsyncClient`
+把连接池绑在创建它的那个 loop 上，后续轮次必然抛 `RuntimeError: Event loop is closed`，
+插件一个字都读不进来（实测连续 20 次告警、零数据）。
+
+**修法**：每个请求开一个短命 client —— `async with httpx.AsyncClient(...) as c`，
+与 `lifekit/_api.py`、`proactive_controller` 的写法一致。
+**不要**为省连接而复用 client。
+
+### 9.2 `[[plugin.ui.panel]].id` 必须是 `main`
+
+宿主按 `panel:main` 查找 surface。实测 5 个带 UI 的官方插件**全部**使用 `id = "main"`，
+用途差异由 `context` 表达（`dashboard` / `credentials` / `quickstart` / 插件名）。
+填成其它值会得到 `UI surface 'panel:main' not found`。
+
+### 9.3 另外两处格式补齐
+
+- `[plugin.author]` —— 缺失时作者信息为空。
+- `[plugin_runtime] { enabled, auto_start }` —— **缺失时注册表只登记元数据、不启动插件进程**。
+  内核日志原话：`treating as manual-start-only (will register metadata but skip auto process start)`。
+
+---
+
 *设计：阿墨 · 2026-09-19 · 供掌柜 review；方向由掌柜定（"维护猫娘尊严 / 分层级 / 开易关难"）*
+*§9 由 Steam 官方内核实测补写*

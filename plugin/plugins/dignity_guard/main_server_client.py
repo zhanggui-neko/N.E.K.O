@@ -111,30 +111,48 @@ class MainServerClient:
         self.base_url = str(base_url or DEFAULT_BASE_URL).rstrip("/")
         self.timeout = float(timeout)
         self._transport = transport
-        self._client: httpx.AsyncClient | None = None
 
-    def _ensure_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                timeout=self.timeout,
-                trust_env=False,
-                proxy=None,
-                transport=self._transport,
-                headers={"Accept": "application/json"},
-            )
-        return self._client
+    def _make_client(self) -> httpx.AsyncClient:
+        """Build a short-lived client for exactly one logical read.
+
+        Deliberately *not* cached. The plugin SDK drives ``@timer_interval``
+        callbacks on an event loop this plugin does not own and cannot assume is
+        the same from one tick to the next. An ``httpx.AsyncClient`` keeps its
+        connection pool bound to the loop that created it, so a cached instance
+        fails on a later tick with ``RuntimeError: Event loop is closed``.
+
+        That is not hypothetical: a live run inside the packaged Steam build
+        produced exactly that warning every tick, so polling never saw a single
+        byte of real data. The official plugins avoid it by opening a client per
+        request — ``lifekit/_api.py`` and ``proactive_controller`` both use
+        ``async with httpx.AsyncClient(...) as c`` and never reuse one across
+        calls. This plugin follows the same rule.
+        """
+        return httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            trust_env=False,
+            proxy=None,
+            transport=self._transport,
+            headers={"Accept": "application/json"},
+        )
 
     async def aclose(self) -> None:
-        client, self._client = self._client, None
-        if client is not None:
-            await client.aclose()
+        """Kept so callers can keep their startup/shutdown symmetry.
+
+        Nothing is held open any more, so this is intentionally a no-op.
+        """
+        return None
 
     # -- low level ---------------------------------------------------------
 
     async def _get_json(self, endpoint: str) -> Any:
+        async with self._make_client() as client:
+            return await self._get_json_with(client, endpoint)
+
+    async def _get_json_with(self, client: httpx.AsyncClient, endpoint: str) -> Any:
         try:
-            response = await self._ensure_client().get(endpoint)
+            response = await client.get(endpoint)
             response.raise_for_status()
             return response.json()
         except Exception as exc:  # noqa: BLE001 - re-raised as our own type
@@ -142,9 +160,10 @@ class MainServerClient:
 
     async def _get_with_headers(self, endpoint: str) -> tuple[Any, Mapping[str, str]]:
         try:
-            response = await self._ensure_client().get(endpoint)
-            response.raise_for_status()
-            return response.json(), dict(response.headers)
+            async with self._make_client() as client:
+                response = await client.get(endpoint)
+                response.raise_for_status()
+                return response.json(), dict(response.headers)
         except Exception as exc:  # noqa: BLE001 - re-raised as our own type
             raise MainServerUnreachable(endpoint, exc) from exc
 
@@ -162,10 +181,11 @@ class MainServerClient:
         return probe, payload
 
     async def fetch_others(self) -> dict[str, Any]:
-        """Read the remaining snapshot sources."""
+        """Read the remaining snapshot sources over one short-lived client."""
         payloads: dict[str, Any] = {}
-        for prefix, endpoint in SNAPSHOT_SOURCES:
-            payloads[prefix] = await self._get_json(endpoint)
+        async with self._make_client() as client:
+            for prefix, endpoint in SNAPSHOT_SOURCES:
+                payloads[prefix] = await self._get_json_with(client, endpoint)
         return payloads
 
     async def fetch_snapshot(self) -> Snapshot:

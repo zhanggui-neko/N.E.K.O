@@ -8,6 +8,9 @@ keywords = ["settings", "dignity", "privacy", "watch", "设置", "尊严", "监�
 version = "0.1.0"
 entry = "plugin.plugins.dignity_guard:DignityGuardPlugin"
 
+[plugin.author]
+name = "zhanggui-neko"
+
 [plugin.i18n]
 default_locale = "zh-CN"
 locales_dir = "i18n"
@@ -20,12 +23,16 @@ supported = ">=0.1.0,<0.3.0"
 enabled = true
 
 [[plugin.ui.panel]]
-id = "dashboard"
+id = "main"
 title = "尊严守卫"
 entry = "ui/panel.tsx"
 mode = "hosted-tsx"
 context = "dashboard"
 permissions = ["state:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
 
 [plugin.store]
 enabled = true
