@@ -185,7 +185,12 @@ class MainServerClient:
         payloads: dict[str, Any] = {}
         async with self._make_client() as client:
             for prefix, endpoint in SNAPSHOT_SOURCES:
-                payloads[prefix] = await self._get_json_with(client, endpoint)
+                payload = await self._get_json_with(client, endpoint)
+                payloads[prefix] = (
+                    prune_mirrored_preferences(payload)
+                    if prefix == "preferences"
+                    else payload
+                )
         return payloads
 
     async def fetch_snapshot(self) -> Snapshot:
@@ -225,6 +230,39 @@ def conversation_slice(payload: Any) -> dict[str, Any] | None:
         if isinstance(value, Mapping):
             sliced[key] = dict(value)
     return sliced or None
+
+
+#: Sentinel the main server puts in ``model_path`` to mark the one entry of
+#: ``/api/config/preferences`` that mirrors the global conversation settings
+#: instead of describing window geometry.
+GLOBAL_CONVERSATION_SENTINEL = "__global_conversation__"
+
+
+def prune_mirrored_preferences(payload: Any) -> Any:
+    """Drop the entries of ``/api/config/preferences`` that are mirrors.
+
+    That endpoint is an aggregate view rather than a store of its own: every
+    entry carries a ``model_path``, and exactly one of them uses the sentinel
+    ``__global_conversation__`` to say "this entry is the global conversation
+    settings, shown here for convenience". Its values are identical to
+    ``/api/config/conversation-settings.settings``.
+
+    Keeping the mirror makes a single real edit change two snapshot paths, raise
+    two disputes, and ask her the same question twice — exactly the kind of noise
+    this plugin exists to prevent. The server hands us an explicit marker for it,
+    so this needs no guessing. What remains is window geometry, which this
+    endpoint genuinely owns.
+    """
+    if not isinstance(payload, list):
+        return payload
+    return [
+        entry
+        for entry in payload
+        if not (
+            isinstance(entry, Mapping)
+            and entry.get("model_path") == GLOBAL_CONVERSATION_SENTINEL
+        )
+    ]
 
 
 def _as_int(value: Any) -> int | None:

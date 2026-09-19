@@ -662,6 +662,14 @@ class GuardState:
             dispute.seen_at = moment
             evaluation.raised.append(dispute)
 
+        # A dispute whose path is no longer present in the snapshot can never be
+        # resolved by a later diff, so it would sit on her panel forever. That
+        # happens whenever a source stops reporting a field — or when we prune a
+        # mirrored entry (see ``prune_mirrored_preferences``). Retire those
+        # rather than leave stale rows she can neither read nor clear.
+        for path in [p for p in self.disputes if p not in snapshot]:
+            del self.disputes[path]
+
         self.snapshot = dict(snapshot)
         return evaluation
 
