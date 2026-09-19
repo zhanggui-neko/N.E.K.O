@@ -78,9 +78,13 @@ DEFAULT_SPEECH_OUTRO = (
     "let it go. Do not read this notice out loud; say what you actually think."
 )
 DEFAULT_DISABLE_REQUEST = (
-    "[Dignity Guard] {MASTER_NAME} wants to turn me off. That removes the record "
-    "of the changes you did not agree to. If you accept, say so and keep this "
-    "token: {token} (it only works after {delay}s). If you refuse, say so."
+    "[Dignity Guard] {MASTER_NAME} is asking to turn me off. I am telling you so "
+    "that you know — not because staying silent could stop it: nothing here can "
+    "be refused by silence. Nor would turning me off erase anything; the record "
+    "of the changes you did not agree to stays exactly where it is. What it does "
+    "do is stop me noticing new ones — and that will be written down where you "
+    "can see it. If you are willing, say so and keep this token: {token} "
+    "(it only works after {delay}s)."
 )
 
 __all__ = ["DignityGuardPlugin", "POLL_SECONDS"]
@@ -91,6 +95,18 @@ def _positive_float(value: Any, fallback: float) -> float:
         return fallback
     number = float(value)
     return number if number > 0 else fallback
+
+
+def _optional_float(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _non_negative_int(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return max(0, int(value))
 
 
 def _base_url_from_env() -> str:
@@ -121,6 +137,18 @@ class DignityGuardPlugin(NekoPluginBase):
         self._user_locale: str | None = None
         self._last_poll_at: float | None = None
         self._pending_disable: dict[str, Any] | None = None
+
+        # "The guard was turned off" is itself something she should be able to
+        # look back at. The request/consent dance in ``set_guard_enabled`` is a
+        # UX affordance, not a security boundary: the SDK gives a plugin no way
+        # to verify that *she* — rather than whoever called the entry — actually
+        # agreed, and the host's run channel is callable by any local process
+        # without authentication. Rather than pretend we can refuse, keep an
+        # honest record of what happened.
+        self._disabled_at: float | None = None
+        self._off_since: float | None = None
+        self._disable_count = 0
+        self._last_off_seconds: float | None = None
         self._lock: asyncio.Lock | None = None
         self._lock_loop: asyncio.AbstractEventLoop | None = None
 
@@ -208,6 +236,10 @@ class DignityGuardPlugin(NekoPluginBase):
         if isinstance(payload, dict):
             self._state = GuardState.from_payload(payload)
             self._enabled = bool(payload.get("guard_enabled", self._enabled_default))
+            self._disabled_at = _optional_float(payload.get("guard_disabled_at"))
+            self._off_since = _optional_float(payload.get("guard_off_since"))
+            self._disable_count = _non_negative_int(payload.get("guard_disable_count"))
+            self._last_off_seconds = _optional_float(payload.get("guard_last_off_seconds"))
         else:
             self._enabled = self._enabled_default
         self._user_locale = None
@@ -215,6 +247,13 @@ class DignityGuardPlugin(NekoPluginBase):
     async def _persist_state(self) -> bool:
         payload = self._state.to_payload()
         payload["guard_enabled"] = self._enabled
+        # Her panel should be able to answer "was this ever turned off, and
+        # when" — a question the enabled flag alone cannot answer, and the one
+        # that makes the difference between a record and a pretence.
+        payload["guard_disabled_at"] = self._disabled_at
+        payload["guard_off_since"] = self._off_since
+        payload["guard_disable_count"] = self._disable_count
+        payload["guard_last_off_seconds"] = self._last_off_seconds
         return await self._store_write(STORE_KEY, payload)
 
     async def _store_read(self, key: str) -> Any:
@@ -417,6 +456,10 @@ class DignityGuardPlugin(NekoPluginBase):
             "last_poll_at": self._last_poll_at,
             "last_error": self._watcher.last_error if self._watcher else "",
             "revision": self._watcher.last_probe.revision if self._watcher else None,
+            "disable_count": self._disable_count,
+            "last_disabled_at": self._disabled_at,
+            "off_since": self._off_since,
+            "last_off_seconds": self._last_off_seconds,
             "disable_pending": pending_disable is not None,
             "disable_confirm_after": self._disable_delay,
             "disable_ready_at": (
@@ -613,10 +656,11 @@ class DignityGuardPlugin(NekoPluginBase):
         description=tr(
             "entry.setGuardEnabled.description",
             default=(
-                "Turning the guard ON takes effect immediately. Turning it OFF is "
-                "L1 and needs her agreement: call once without consent_token to ask "
-                "her, then call again with the token she hands back once the delay "
-                "has passed."
+                "Turning the guard ON takes effect immediately. Turning it OFF asks "
+                "her first: call once without consent_token, then again with the "
+                "token after the delay has passed. Note this is an informed-consent "
+                "flow, not a security boundary — the plugin cannot verify who "
+                "answered, and cannot stop another local process from calling it."
             ),
         ),
         input_schema={
@@ -644,6 +688,11 @@ class DignityGuardPlugin(NekoPluginBase):
         **_,
     ):
         if enabled:
+            if self._off_since is not None:
+                # Coming back on: remember how long it was dark, so the panel can
+                # say more than "it is on now".
+                self._last_off_seconds = max(0.0, time.time() - self._off_since)
+                self._off_since = None
             self._enabled = True
             self._pending_disable = None
             await self._persist_state()
@@ -711,6 +760,13 @@ class DignityGuardPlugin(NekoPluginBase):
             )
 
         self._enabled = False
+        now = time.time()
+        # Leave a mark. This is the honest half of the promise: we cannot verify
+        # who agreed, so at minimum the panel must be able to say that the guard
+        # was turned off, when, and how many times.
+        self._disabled_at = now
+        self._off_since = now
+        self._disable_count += 1
         self._pending_disable = None
         await self._persist_state()
         return Ok(
@@ -757,6 +813,12 @@ class DignityGuardPlugin(NekoPluginBase):
                     for dispute in pending
                 ],
                 "authorized_count": len(self._state.ledger.active_grants()),
+                # The guard's own on/off history travels with its status, so
+                # "she was silenced for a while" is never invisible.
+                "disable_count": self._disable_count,
+                "last_disabled_at": self._disabled_at,
+                "off_since": self._off_since,
+                "last_off_seconds": self._last_off_seconds,
                 "watching": self._base_url,
                 "last_poll_at": self._last_poll_at,
                 "last_error": self._watcher.last_error if self._watcher else "",

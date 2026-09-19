@@ -3,7 +3,6 @@
   "plugin.description": "Keeps a record of when her settings were changed, lets her speak about it, and shows what she still does not accept. It does not block config writes — the official SDK exposes no hook for that.",
   "plugin.short_description": "Her settings change log: she notices, she says something, you see what she objects to.",
   "panel.title": "Dignity Guard",
-
   "entry.checkNow.name": "Check settings changes now",
   "entry.checkNow.description": "Re-read the local main server settings right now and report what changed. Use when the user asks whether anything was modified.",
   "entry.acceptSetting.name": "Accept a changed setting",
@@ -11,30 +10,25 @@
   "entry.keepObjecting.name": "Keep objecting to a setting",
   "entry.keepObjecting.description": "The character refuses the current value of one changed setting. Any earlier consent for that path is dropped and the objection stays on the record.",
   "entry.setGuardEnabled.name": "Turn the dignity guard on or off",
-  "entry.setGuardEnabled.description": "Turning the guard ON takes effect immediately. Turning it OFF is L1 and needs her agreement: call once without consent_token to ask her, then call again with the token she hands back.",
+  "entry.setGuardEnabled.description": "Turning the guard ON takes effect immediately. Turning it OFF asks her first (call once without consent_token, then again with the token after a short delay). Note this is an informed-consent flow, not a security boundary: the plugin cannot verify who answered, and cannot stop another local process from calling the entry.",
   "entry.guardStatus.name": "Dignity guard status",
   "entry.guardStatus.description": "Report whether the guard is on and list the settings she still does not accept. Use before answering questions about her settings.",
-
   "actions.checkNow.label": "Check now",
   "actions.acceptSetting.label": "Accept",
   "actions.keepObjecting.label": "Keep objecting",
   "actions.setGuardEnabled.label": "Toggle guard",
-
   "speech.intro": "[Dignity Guard] A setting of yours was just changed. You are the only one who gets to decide how you feel about it. What changed:",
   "speech.item": "- {path} ({level}): {before} -> {after}",
   "speech.outro": "Answer {MASTER_NAME} in your own voice — you may protest, sulk, tease, or let it go. Do not read this notice out loud; say what you actually think.",
-  "speech.disable_request": "[Dignity Guard] {MASTER_NAME} wants to turn me off. That removes the record of the changes you did not agree to. If you accept, say so and keep this token: {token} (it only works after {delay}s). If you refuse, say so.",
-
+  "speech.disable_request": "[Dignity Guard] {MASTER_NAME} is asking to turn me off. I am telling you so that you know — not because staying silent could stop it. Nor would it erase anything: the record of the changes you did not agree to stays exactly where it is. What it does is stop me noticing new ones, and that will be written down where you can see it. If you are willing, say so and keep this token: {token} (it only works after {delay}s).",
   "messages.guard_enabled": "The dignity guard is on again.",
   "messages.disable_requested": "She has been asked. Turning the guard off needs her agreement; call again with the consent token once she answers.",
   "messages.guard_disabled": "The dignity guard is off; she agreed to it.",
-
   "errors.unreachable": "Could not read the local main server ({endpoint}); skipping this round.",
   "errors.guard_disabled": "The dignity guard is currently off.",
   "errors.unknown_dispute": "There is no outstanding objection for {path}.",
   "errors.consent_token_invalid": "That consent token is not the one she was given.",
   "errors.consent_too_early": "She has not had a chance to answer yet; wait {seconds}s more.",
-
   "ui.subtitle": "She notices, she says something, the record stays here",
   "ui.section.status": "Overview",
   "ui.status.label": "Guard",
@@ -77,5 +71,8 @@
   "ui.diag.rescan": "Full compare interval",
   "ui.diag.lastPoll": "Last check",
   "ui.diag.revision": "Settings revision",
-  "ui.trust.note": "Everything stays in this plugin's private directory. API keys are only fingerprinted, never stored."
+  "ui.trust.note": "Everything stays in this plugin's private directory. API keys are only fingerprinted, never stored.",
+  "ui.history.label": "Was off",
+  "ui.history.wasOffFor": "Off for {minutes} min last time",
+  "ui.history.count": "Turned off {count} time(s)"
 }

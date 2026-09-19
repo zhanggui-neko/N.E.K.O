@@ -3,7 +3,6 @@
   "plugin.description": "彼女の設定がいつ変更されたかを記録し、本人に語らせ、「まだ納得していない項目」をパネルに残します。設定の書き込みは遮断しません——公式 SDK にそのフックはありません。",
   "plugin.short_description": "彼女の設定変更記録：気づいて、口に出して、何に反対しているかが見える。",
   "panel.title": "尊厳ガード",
-
   "entry.checkNow.name": "設定の変更を今すぐ確認",
   "entry.checkNow.description": "ローカルのメインサーバーから設定を読み直し、変更点を報告します。「設定を触られた？」と聞かれたときに使います。",
   "entry.acceptSetting.name": "変更された設定を承諾する",
@@ -11,30 +10,25 @@
   "entry.keepObjecting.name": "設定への異議を保ち続ける",
   "entry.keepObjecting.description": "彼女が変更後の値を拒否します。その項目の以前の承諾はすべて取り消され、異議は記録に残ります。",
   "entry.setGuardEnabled.name": "尊厳ガードをオン／オフする",
-  "entry.setGuardEnabled.description": "オンは即時反映されます。オフは L1 なので彼女の同意が必要です：まず consent_token なしで呼び出して本人に尋ね、返事のあとトークン付きでもう一度呼び出します。",
+  "entry.setGuardEnabled.description": "オンは即時反映されます。オフの前には本人に尋ねます（consent_token なしで一度呼び、少し待ってからトークン付きでもう一度）。これは本人に知らせるための手順であり、セキュリティ境界ではありません——返答したのが本人かは確認できず、同一マシン上の別プロセスが直接呼ぶことも止められません。",
   "entry.guardStatus.name": "尊厳ガードの状態",
   "entry.guardStatus.description": "ガードがオンかどうかと、彼女がまだ納得していない設定を報告します。彼女の設定について答える前に呼び出してください。",
-
   "actions.checkNow.label": "今すぐ確認",
   "actions.acceptSetting.label": "承諾する",
   "actions.keepObjecting.label": "納得しない",
   "actions.setGuardEnabled.label": "ガードの切替",
-
   "speech.intro": "[尊厳ガード] たった今、あなたの設定が変更されました。受け入れるかどうかを決められるのはあなただけです。変更点：",
   "speech.item": "- {path}（{level}）：{before} → {after}",
   "speech.outro": "あなた自身の言葉で {MASTER_NAME} に答えてください。抗議しても、すねても、からかっても、流しても構いません。この通知を読み上げず、本当に思っていることを言ってください。",
-  "speech.disable_request": "[尊厳ガード] {MASTER_NAME} が私をオフにしようとしています。オフにすると「あなたが納得しなかった変更」の記録も消えます。同意するならそう伝えて、このトークンを覚えておいてください：{token}（{delay} 秒後にだけ有効になります）。拒否するならそのまま断ってください。",
-
+  "speech.disable_request": "[尊厳ガード] {MASTER_NAME} が私をオフにしようとしています。知らせているのは、黙っていれば止められるからではありません。オフにしても記録は消えません——「あなたが納得しなかった変更」はそのまま残ります。止まるのは、新しい変更に気づくことだけ。そしてそれはパネルに書き残されます。よければそう伝えて、このトークンを覚えておいてください：{token}（{delay} 秒後にだけ有効になります）。",
   "messages.guard_enabled": "尊厳ガードを再びオンにしました。",
   "messages.disable_requested": "彼女に確認しました。オフには本人の同意が必要です——返事のあとトークン付きでもう一度呼び出してください。",
   "messages.guard_disabled": "尊厳ガードをオフにしました。彼女も同意しています。",
-
   "errors.unreachable": "ローカルのメインサーバー（{endpoint}）を読めませんでした。今回は見送ります。",
   "errors.guard_disabled": "尊厳ガードは現在オフです。",
   "errors.unknown_dispute": "{path} に未処理の異議はありません。",
   "errors.consent_token_invalid": "そのトークンは彼女に渡されたものではありません。",
   "errors.consent_too_early": "彼女がまだ答える暇がありません。あと {seconds} 秒お待ちください。",
-
   "ui.subtitle": "彼女が気づき、口に出し、記録はここに残る",
   "ui.section.status": "概要",
   "ui.status.label": "ガード",
@@ -77,5 +71,8 @@
   "ui.diag.rescan": "全体比較の間隔",
   "ui.diag.lastPoll": "前回の確認",
   "ui.diag.revision": "設定リビジョン",
-  "ui.trust.note": "データはすべてこのプラグインの専用ディレクトリだけに保存されます。API キーは「変わったか」だけを記録し、中身は保存しません。"
+  "ui.trust.note": "データはすべてこのプラグインの専用ディレクトリだけに保存されます。API キーは「変わったか」だけを記録し、中身は保存しません。",
+  "ui.history.label": "オフ履歴",
+  "ui.history.wasOffFor": "前回は {minutes} 分間オフでした",
+  "ui.history.count": "{count} 回オフにされています"
 }

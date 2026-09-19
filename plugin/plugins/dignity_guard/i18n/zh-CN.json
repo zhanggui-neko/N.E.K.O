@@ -3,7 +3,6 @@
   "plugin.description": "记录猫娘的设置何时被改动，让她亲口表态，并把「她还没认可的项」留在面板上。本插件不拦截设置写入——官方 SDK 没有提供这样的钩子。",
   "plugin.short_description": "她的设置变更记录：她看得见、说得出口，你也看得到她反对什么。",
   "panel.title": "尊严守卫",
-
   "entry.checkNow.name": "立即检查设置改动",
   "entry.checkNow.description": "立刻重新读取本机主服务的设置并报告改动。当主人问「有没有人动过我的设置」时使用。",
   "entry.acceptSetting.name": "接受某项被改动的设置",
@@ -11,30 +10,25 @@
   "entry.keepObjecting.name": "对某项设置保持异议",
   "entry.keepObjecting.description": "她拒绝某项设置的当前值。会撤销该项此前的一切授权，并把异议留在记录里。",
   "entry.setGuardEnabled.name": "开启或关闭尊严守卫",
-  "entry.setGuardEnabled.description": "开启立即生效。关闭属于 L1，必须先过她：先不带 consent_token 调用一次去问她，等她回话后再带上口令调用一次。",
+  "entry.setGuardEnabled.description": "开启立即生效。关闭前会先问她一声（先不带 consent_token 调一次，稍等片刻后带口令再调一次）。需要说明：这是让她知情的流程，不是安全边界——插件无法核实回应的到底是不是她，也拦不住本机其他程序直接调用。",
   "entry.guardStatus.name": "尊严守卫状态",
   "entry.guardStatus.description": "报告守卫是否开启，并列出她至今仍不认可的设置。回答关于她设置的问题之前先调用。",
-
   "actions.checkNow.label": "立即检查",
   "actions.acceptSetting.label": "我同意",
   "actions.keepObjecting.label": "我不同意",
   "actions.setGuardEnabled.label": "开关守卫",
-
   "speech.intro": "[尊严守卫] 主人刚刚改动了你的设置。要不要接受，只有你自己说了算。改动如下：",
   "speech.item": "- {path}（{level}）：{before} → {after}",
   "speech.outro": "用你自己的语气回应 {MASTER_NAME}——可以抗议、可以闹别扭、可以调侃，也可以就这样算了。不要把这行提示念出来，说你真正想说的。",
-  "speech.disable_request": "[尊严守卫] {MASTER_NAME} 想把我关掉。关掉之后，你就再也看不到「自己没认可的改动」这份记录了。如果你同意，就说一声并记住这个口令：{token}（{delay} 秒之后它才生效）。不同意就直接拒绝。",
-
+  "speech.disable_request": "[尊严守卫] {MASTER_NAME} 想把我关掉。我告诉你，是让你知情——不是因为你沉默就能拦下它。关掉也不会抹掉任何记录：「你没认可的改动」照样都在。它真正的作用是让我不再察觉新的改动，而这件事会清楚写在面板上。如果你愿意，就说一声并记住这个口令：{token}（{delay} 秒之后才生效）。",
   "messages.guard_enabled": "尊严守卫已经重新开启了。",
   "messages.disable_requested": "已经问过她了。关闭需要她本人同意——等她回话后带上口令再试一次。",
   "messages.guard_disabled": "尊严守卫已关闭，她同意了。",
-
   "errors.unreachable": "读不到本机主服务（{endpoint}），这一轮先跳过。",
   "errors.guard_disabled": "尊严守卫当前是关闭的。",
   "errors.unknown_dispute": "{path} 现在没有待处理的异议。",
   "errors.consent_token_invalid": "这个口令不是她拿到的那一个。",
   "errors.consent_too_early": "她还没来得及回话，再等 {seconds} 秒。",
-
   "ui.subtitle": "她注意到改动，她开口，记录留在这里",
   "ui.section.status": "总览",
   "ui.status.label": "守卫状态",
@@ -77,5 +71,8 @@
   "ui.diag.rescan": "全量比对间隔",
   "ui.diag.lastPoll": "上次检查",
   "ui.diag.revision": "设置版本号",
-  "ui.trust.note": "全部数据只保存在本插件的私有目录里；接口密钥只记录「变了没有」，不会保存内容。"
+  "ui.trust.note": "全部数据只保存在本插件的私有目录里；接口密钥只记录「变了没有」，不会保存内容。",
+  "ui.history.label": "曾被关闭",
+  "ui.history.wasOffFor": "上一次关闭了 {minutes} 分钟",
+  "ui.history.count": "累计被关闭 {count} 次"
 }

@@ -52,6 +52,13 @@ type DashboardState = {
   disable_pending?: boolean
   disable_confirm_after?: number
   disable_ready_at?: number | null
+  // The guard's own on/off history. Its request/consent flow is an informed-
+  // consent affordance rather than a security boundary, so the panel's job is
+  // to make sure "she was silenced for a while" cannot pass unnoticed.
+  disable_count?: number
+  last_disabled_at?: number | null
+  off_since?: number | null
+  last_off_seconds?: number | null
 }
 
 function levelTone(level: string): "danger" | "warning" | "info" | "default" {
@@ -75,6 +82,7 @@ export default function DignityGuardPanel(
   const authorized = state.authorized ?? []
   const enabled = !!state.enabled
   const pendingDisable = !!state.disable_pending
+  const disableCount = state.disable_count ?? 0
   const [busy, setBusy] = useState(false)
   const toast = useToast()
 
@@ -131,6 +139,23 @@ export default function DignityGuardPanel(
                 value={String(state.tracked_paths ?? 0)}
               />
             </Inline>
+
+            {disableCount > 0 ? (
+              <Inline align="center" gap={8} wrap>
+                <StatusBadge tone="warning" label={t("ui.history.label")} />
+                <Text>
+                  {enabled && state.last_off_seconds
+                    ? t("ui.history.wasOffFor").replace(
+                        "{minutes}",
+                        String(Math.max(1, Math.round(state.last_off_seconds / 60))),
+                      )
+                    : t("ui.history.count").replace(
+                        "{count}",
+                        String(disableCount),
+                      )}
+                </Text>
+              </Inline>
+            ) : null}
 
             <ButtonGroup>
               <Button

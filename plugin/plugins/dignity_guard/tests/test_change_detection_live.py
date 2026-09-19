@@ -28,13 +28,24 @@ from plugin.plugins.dignity_guard.settings_guard import (
     GuardState,
 )
 
+#: Generous on purpose, and deliberately *not* the production default.
+#:
+#: The stand-in server in ``conftest.py`` is a ``ThreadingHTTPServer``, which
+#: spawns a thread per connection, and this suite runs on whatever machine the
+#: author or CI happens to provide. At the production default of 3s, a busy
+#: 2-core box — or one running other work in parallel — fails these tests
+#: spuriously: the reads are correct, they are simply slow to be scheduled.
+#: Raising the client timeout here keeps the assertions about *behaviour* while
+#: removing the machine's load from the test's critical path.
+SERVER_TIMEOUT_SECONDS = 30.0
+
 
 def test_editing_one_setting_is_detected_on_the_next_poll(main_server) -> None:
     """The core promise: change a value, and the plugin notices."""
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=3600.0)
         try:
@@ -77,7 +88,7 @@ def test_an_edit_that_does_not_bump_the_revision_is_still_caught(main_server) ->
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=5.0)
         try:
@@ -102,7 +113,7 @@ def test_geometry_changes_are_recorded_without_raising(main_server) -> None:
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=0.5)
         try:
@@ -125,7 +136,7 @@ def test_an_authorized_change_stops_being_raised(main_server) -> None:
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=0.5)
         try:
@@ -153,7 +164,7 @@ def test_credentials_are_never_written_to_the_record(main_server) -> None:
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=0.5)
         try:
@@ -182,7 +193,7 @@ def test_engine_metadata_is_not_mistaken_for_a_setting(main_server) -> None:
     fake, base_url = main_server
 
     async def scenario():
-        client = MainServerClient(base_url)
+        client = MainServerClient(base_url, timeout=SERVER_TIMEOUT_SECONDS)
         state = GuardState()
         watcher = SettingsWatcher(client, state, full_rescan_seconds=0.5)
         try:
