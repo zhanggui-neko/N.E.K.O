@@ -646,6 +646,22 @@ class GuardState:
                 continue
             evaluation.raised.append(self._raise(change, now=moment))
 
+        # A finite acceptance is a promise, not a permanent silence. When the
+        # grant lapses the path comes back to her even though its value has not
+        # changed again. Without this, "do not ask me for a week" meant "do not
+        # ask me ever", because the baseline had already moved past the change
+        # and no future diff could surface it.
+        for dispute in self.disputes.values():
+            if dispute.status != "accepted":
+                continue
+            if self.ledger.is_authorized(dispute.path, now=moment):
+                continue
+            # Flipping the status back to "pending" also stops this from firing
+            # every tick: the next pass skips it.
+            dispute.status = "pending"
+            dispute.seen_at = moment
+            evaluation.raised.append(dispute)
+
         self.snapshot = dict(snapshot)
         return evaluation
 
@@ -690,11 +706,21 @@ class GuardState:
     # -- character actions -------------------------------------------------
 
     def accept(self, path: str, *, ttl_seconds: float | None = None, now: float | None = None) -> Grant | None:
-        """She approves the current value; stop asking for a while."""
+        """She approves the current value; stop asking for a while.
+
+        The dispute is *kept* (marked ``accepted``) rather than deleted. Deleting
+        it made acceptance irreversible in two separate ways: :meth:`reject` then
+        had nothing to reopen, and :meth:`evaluate` advances the baseline on every
+        tick, so no later diff could ever raise the path again — meaning a finite
+        ``ttl_seconds`` behaved like permanent silence. ``pending()`` filters on
+        status, so an accepted dispute still stays off her panel.
+        """
         moment = now if now is not None else time.time()
-        if path not in self.disputes:
+        dispute = self.disputes.get(path)
+        if dispute is None:
             return None
-        self.disputes.pop(path, None)
+        dispute.seen_at = moment
+        dispute.status = "accepted"
         return self.ledger.grant(path, ttl_seconds=ttl_seconds, now=moment, source="character")
 
     def reject(self, path: str, *, now: float | None = None) -> bool:
