@@ -88,8 +88,25 @@ GUARD_SWITCH_PATH = "guard.enabled"
 #: ``main_server_client``.
 SENSITIVITY_RULES: tuple[tuple[str, str], ...] = (
     # --- L1: persona, identity, autonomy, and the guard's own master switch ---
-    ("characters.猫娘.*.system_prompt", LEVEL_L1),
+    #
+    # Key names were checked against the live endpoints (2026-09-19).
+    # ``GET /api/characters`` returns:
+    #   {"主人": {"档案名", "性别", "昵称"},
+    #    "猫娘": {"<name>": {"昵称", "性别", "年龄", "种族", "自称",
+    #                        "核心特质", "行为特点", "厌恶", "一句话台词",
+    #                        "voice_id", "_reserved": {"avatar": {...}}}}}
+    # Her *persona* therefore lives in 核心特质 / 行为特点 / 厌恶 / 一句话台词 —
+    # there is no ``system_prompt`` and no ``性格`` in this shape. The four
+    # persona keys below are the ones that actually fire today; the
+    # older/alternate names are kept after them so they still apply if a
+    # different build uses them.
+    ("characters.猫娘.*.核心特质", LEVEL_L1),
+    ("characters.猫娘.*.行为特点", LEVEL_L1),
+    ("characters.猫娘.*.厌恶", LEVEL_L1),
+    ("characters.猫娘.*.一句话台词", LEVEL_L1),
+    ("characters.主人.档案名", LEVEL_L1),
     ("characters.猫娘.*.档案名", LEVEL_L1),
+    ("characters.猫娘.*.system_prompt", LEVEL_L1),
     ("characters.猫娘.*.性格", LEVEL_L1),
     ("characters.主人.system_prompt", LEVEL_L1),
     # ``proactive*`` decides whether she may speak up unprompted. That is her
@@ -100,7 +117,13 @@ SENSITIVITY_RULES: tuple[tuple[str, str], ...] = (
     ("characters.主人.昵称", LEVEL_L2),
     ("characters.猫娘.*.昵称", LEVEL_L2),
     ("characters.猫娘.*.性别", LEVEL_L2),
+    ("characters.猫娘.*.年龄", LEVEL_L2),
+    ("characters.猫娘.*.种族", LEVEL_L2),
+    ("characters.猫娘.*.自称", LEVEL_L2),
     ("characters.猫娘.*.voice_id", LEVEL_L2),
+    # ``avatar`` sits under ``_reserved`` in the live shape; the bare name is
+    # kept for builds that expose it at the top level.
+    ("characters.猫娘.*._reserved.avatar", LEVEL_L2),
     ("characters.猫娘.*.avatar", LEVEL_L2),
     ("page_config.model_path", LEVEL_L2),
     ("page_config.model_type", LEVEL_L2),
@@ -114,12 +137,26 @@ SENSITIVITY_RULES: tuple[tuple[str, str], ...] = (
     ("conversation.settings.subtitleEnabled", LEVEL_L3),
     ("conversation.settings.avatarReactionBubbleEnabled", LEVEL_L3),
     ("conversation.settings.textGuardMaxLength", LEVEL_L3),
+    # ``/api/config/preferences`` is a list of three entries: the first two hold
+    # window geometry, the third holds the ``proactive*`` autonomy flags.
+    # :func:`flatten` now descends into it by index, so every rule below is
+    # reachable. Specificity decides the winner (longest rule), so the blanket
+    # L3 must stay last.
     ("preferences.*.position", LEVEL_L3),
     ("preferences.*.scale", LEVEL_L3),
     ("preferences.*.display", LEVEL_L3),
     ("preferences.*.rotation", LEVEL_L3),
     ("preferences.*.viewport", LEVEL_L3),
     ("preferences.*.camera_position", LEVEL_L3),
+    # Her autonomy lives in this same list (``preferences.2.proactiveChatEnabled``
+    # and ten siblings). ``position.x`` reads like 1820.3297010767687, so merely
+    # dragging her window changes the digest — that is plumbing, and it is L3.
+    # Whether she may speak up unprompted is not plumbing.
+    ("preferences.*.proactive*", LEVEL_L1),
+    ("preferences.*.model_path", LEVEL_L2),
+    # Everything else in this list is display/audio plumbing; record it quietly.
+    # Kept last: a less specific rule must never outrank the ones above.
+    ("preferences.*", LEVEL_L3),
 )
 
 #: Fallback by leaf name, for the same field living somewhere we did not list.
@@ -316,6 +353,24 @@ def _flatten_into(node: Any, prefix: str, out: Snapshot) -> None:
         for key, value in node.items():
             child = f"{prefix}.{key}" if prefix else str(key)
             _flatten_into(value, child, out)
+        return
+    if isinstance(node, (list, tuple)) and any(
+        isinstance(item, (Mapping, list, tuple)) for item in node
+    ):
+        # A list of *structures* is descended by index so that per-element rules
+        # can match. This matters for ``/api/config/preferences``: it is a list
+        # whose third entry holds the ``proactive*`` autonomy flags, while the
+        # first two hold window geometry. Treating the whole list as one opaque
+        # leaf would force a single level onto both, which is wrong in one
+        # direction or the other.
+        #
+        # A list of *scalars* (e.g. 核心特质: ["理智可靠", ...]) still collapses
+        # to one leaf on purpose — reordering it should read as one change
+        # rather than an index-by-index cascade, and its rules match the bare
+        # key.
+        for index, item in enumerate(node):
+            child = f"{prefix}.{index}" if prefix else str(index)
+            _flatten_into(item, child, out)
         return
     if prefix:
         out[prefix] = Value.of(node, secret=is_secret_path(prefix))
